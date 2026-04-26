@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bus Tracker Pro</title>
+
+<style>
+body { margin:0; font-family:Arial; background:#eaf4ff; }
+
+header {
+    background:#007bff;
+    color:white;
+    text-align:center;
+    padding:12px;
+}
+
+.nav {
+    display:flex;
+    background:#0056b3;
+}
+
+.nav button {
+    flex:1;
+    padding:10px;
+    border:none;
+    background:#0056b3;
+    color:white;
+}
+
+.page { display:none; padding:12px; }
+
+.active { display:block; }
+
+.card {
+    background:white;
+    padding:12px;
+    margin:10px 0;
+    border-radius:10px;
+}
+
+input, select {
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+}
+
+button {
+    width:100%;
+    padding:10px;
+    background:#007bff;
+    color:white;
+    border:none;
+    border-radius:8px;
+}
+
+.deleteBtn { background:red; margin-top:6px; }
+
+.resetBtn { background:black; }
+</style>
+</head>
+
+<body>
+
+<header>
+<h3>Bus Tracker Pro</h3>
+</header>
+
+<!-- NAV -->
+<div class="nav">
+<button onclick="show('home')">Home</button>
+<button onclick="show('history')">History</button>
+<button onclick="show('total')">Total</button>
+<button onclick="show('settings')">Settings</button>
+</div>
+
+<!-- HOME -->
+<div id="home" class="page active">
+
+<h4>🏠 Personal Trip</h4>
+
+<select id="pTicket">
+<option value="9">₹9</option>
+<option value="10">₹10</option>
+<option value="13" selected>₹13</option>
+<option value="custom">Custom</option>
+</select>
+
+<input id="pCustom" type="number">
+
+<button onclick="addPersonal()">Add Personal</button>
+
+<h4>🚍 Shared Trip</h4>
+
+<select id="sTicket">
+<option value="9">₹9</option>
+<option value="10">₹10</option>
+<option value="13">₹13</option>
+<option value="18">₹18</option>
+<option value="26">₹26</option>
+<option value="custom" selected>Custom</option>
+</select>
+
+<input id="sCustom" type="number" placeholder="Enter custom amount">
+
+<select id="payer">
+<option value="me">I Paid</option>
+<option value="friend">Friend Paid</option>
+</select>
+
+<button onclick="addShared()">Add Shared</button>
+
+<div class="card">
+<b>⚖️ Balance:</b> ₹<span id="balance">0</span>
+</div>
+
+</div>
+
+<!-- HISTORY -->
+<div id="history" class="page">
+<h3>📜 History</h3>
+<div id="historyList"></div>
+</div>
+
+<!-- TOTAL -->
+<div id="total" class="page">
+
+<h3>💰 Total Summary</h3>
+
+<div class="card">
+🏠 Personal Total: ₹<span id="tPersonal">0</span><br><br>
+🚍 Shared (You Paid): ₹<span id="tShared">0</span><br><br>
+➕ FINAL TOTAL: ₹<span id="tFinal">0</span>
+</div>
+
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="page">
+
+<h3>⚙️ Settings</h3>
+
+<div class="card">
+<button class="resetBtn" onclick="resetApp()">Reset App 🔄</button>
+</div>
+
+</div>
+
+<script>
+
+let personal = JSON.parse(localStorage.getItem("personal")) || [];
+let shared = JSON.parse(localStorage.getItem("shared")) || [];
+let balance = Number(localStorage.getItem("balance")) || 0;
+
+/* ---------- NAV ---------- */
+function show(p){
+    document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+    document.getElementById(p).classList.add("active");
+}
+
+/* ---------- SOUND ---------- */
+function beep(){
+    try {
+        let ctx = new (window.AudioContext || window.webkitAudioContext)();
+        let o = ctx.createOscillator();
+        let g = ctx.createGain();
+
+        o.type = "sine";
+        o.frequency.value = 700;
+
+        g.gain.value = 0.1;
+
+        o.connect(g);
+        g.connect(ctx.destination);
+
+        o.start();
+        o.stop(ctx.currentTime + 0.12);
+    } catch(e){}
+}
+
+/* ---------- PERSONAL ---------- */
+function getP(){
+    return pTicket.value === "custom" ? Number(pCustom.value) : Number(pTicket.value);
+}
+
+function addPersonal(){
+    beep();
+
+    personal.push({
+        id:Date.now(),
+        amount:getP(),
+        time:new Date().toLocaleString()
+    });
+
+    localStorage.setItem("personal", JSON.stringify(personal));
+    render();
+}
+
+/* ---------- SHARED ---------- */
+function getS(){
+    return sTicket.value === "custom" ? Number(sCustom.value) : Number(sTicket.value);
+}
+
+function addShared(){
+    beep();
+
+    let amount = getS();
+    let payer = document.getElementById("payer").value;
+
+    shared.push({
+        id:Date.now(),
+        amount,
+        payer,
+        time:new Date().toLocaleString()
+    });
+
+    if(payer==="me") balance += amount;
+    else balance -= amount;
+
+    localStorage.setItem("shared", JSON.stringify(shared));
+    localStorage.setItem("balance", balance);
+
+    render();
+}
+
+/* ---------- DELETE ---------- */
+function deleteItem(type,id){
+    beep();
+
+    if(type==="p"){
+        personal = personal.filter(x=>x.id!==id);
+        localStorage.setItem("personal", JSON.stringify(personal));
+    } else {
+        shared = shared.filter(x=>x.id!==id);
+        localStorage.setItem("shared", JSON.stringify(shared));
+    }
+
+    render();
+}
+
+/* ---------- RESET ---------- */
+function resetApp(){
+
+    beep();
+    alert("App will reset now...");
+
+    personal = [];
+    shared = [];
+    balance = 0;
+
+    localStorage.clear();
+
+    render();
+}
+
+/* ---------- RENDER ---------- */
+function render(){
+
+    document.getElementById("balance").innerText = balance;
+
+    let h = document.getElementById("historyList");
+    h.innerHTML = "";
+
+    let pTotal = 0;
+    let sTotal = 0;
+
+    personal.forEach(p=>{
+        pTotal += p.amount;
+
+        let d = document.createElement("div");
+        d.className="card";
+        d.innerHTML=`
+        🏠 Personal ₹${p.amount}<br>
+        ${p.time}<br>
+        <button class="deleteBtn" onclick="deleteItem('p',${p.id})">Delete</button>
+        `;
+        h.appendChild(d);
+    });
+
+    shared.forEach(s=>{
+        if(s.payer==="me") sTotal += s.amount;
+
+        let d = document.createElement("div");
+        d.className="card";
+        d.innerHTML=`
+        🚍 Shared ₹${s.amount}<br>
+        Paid by: ${s.payer}<br>
+        ${s.time}<br>
+        <button class="deleteBtn" onclick="deleteItem('s',${s.id})">Delete</button>
+        `;
+        h.appendChild(d);
+    });
+
+    document.getElementById("tPersonal").innerText = pTotal;
+    document.getElementById("tShared").innerText = sTotal;
+    document.getElementById("tFinal").innerText = pTotal + sTotal;
+}
+
+/* ---------- INIT ---------- */
+render();
+
+</script>
+
+</body>
+</html>
